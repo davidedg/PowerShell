@@ -69,6 +69,7 @@ function Get-ScheduledTasks {
             RunLevel           : COM object queries
             Description        : COM object queries
             NumberOfMissedRuns : COM object queries
+            XML                : COM object queries
 
         Thanks to help from Brian Wilhite, Jaap Brasser, and Jan Egil's functions:
             http://gallery.technet.microsoft.com/scriptcenter/Get-SchedTasks-Determine-5e04513f
@@ -268,8 +269,9 @@ function Get-ScheduledTasks {
                                         @{ label = "Author"; expression = {$Author} },
                                         @{ label = "RunLevel"; expression = {$RunLevel} },
                                         @{ label = "Description"; expression = {$Description} },
-                                        NumberOfMissedRuns
-                            
+                                        NumberOfMissedRuns,
+                                        @{ label = "XML"; expression =  { try { $([xml]$task.Xml).Task } catch {$null} } }
+                                        
                                     #if specified, output the results in importable XML format
                                     if($path){
                                         $xml = $task.Xml
