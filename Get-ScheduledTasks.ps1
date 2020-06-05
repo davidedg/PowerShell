@@ -1,4 +1,4 @@
-﻿function Get-ScheduledTasks {  
+function Get-ScheduledTasks {
     <#
     .SYNOPSIS
         Get scheduled task information from a system
@@ -127,52 +127,45 @@
                 param (
                     # Set to use $Schedule as default parameter so it automatically list all files
                     # For current schedule object if it exists.
-                    $FolderRef = $sch.getfolder("\"),
-
-                    [switch]$recurse
+                    $FolderRef = $sch.getfolder("\")
                 )
 
-                #No recurse?  Return the folder reference
-                if (-not $recurse) {
-                    $FolderRef
-                }
-                #Recurse?  Build up an array!
-                else {
-                    Try{
-                        #This will fail on older systems...
-                        $folders = $folderRef.getfolders(1)
+                Try{
+                    #This will fail on older systems...
+                    $folders = $folderRef.getfolders(1)
 
-                        #Extract results into array
-                        $ArrFolders = @(
-                            if($folders) {
-                                foreach ($fold in $folders) {
-                                    $fold
-                                    if($fold.getfolders(1)) {
-                                        Get-AllTaskSubFolders -FolderRef $fold
-                                    }
+                    #Extract results into array
+                    $ArrFolders = @(
+                        if($folders) {
+                            foreach ($fold in $folders) {
+                                $fold
+                                if($fold.getfolders(1)) {
+                                    Get-AllTaskSubFolders -FolderRef $fold
                                 }
                             }
-                        )
-                    }
-                    Catch{
-                        #If we failed and the expected error, return folder ref only!
-                        if($_.tostring() -like '*Exception calling "GetFolders" with "1" argument(s): "The request is not supported.*')
-                        {
-                            $folders = $null
-                            Write-Warning "GetFolders failed, returning root folder only: $_"
-                            Return $FolderRef
                         }
-                        else{
-                            Throw $_
-                        }
-                    }
-
-                    #Return only unique results
-                        $Results = @($ArrFolders) + @($FolderRef)
-                        $UniquePaths = $Results | select -ExpandProperty path -Unique
-                        $Results | ?{$UniquePaths -contains $_.path}
+                    )
                 }
+                Catch{
+                    #If we failed and the expected error, return folder ref only!
+                    if($_.tostring() -like '*Exception calling "GetFolders" with "1" argument(s): "The request is not supported.*')
+                    {
+                        $folders = $null
+                        Write-Warning "GetFolders failed, returning root folder only: $_"
+                        Return $FolderRef
+                    }
+                    else{
+                        Throw $_
+                    }
+                }
+
+                #Return only unique results
+                    $Results = @($ArrFolders)
+                    $UniquePaths = $Results | Sort-Object -Property path | Select-Object -ExpandProperty path -Unique
+                    $Results | ?{$UniquePaths -contains $_.path}
+                
             } #Get-AllTaskSubFolders
+
         }
 
         function Get-SchTasks {
@@ -224,20 +217,20 @@
                         #Connect to the computer
                         $sch.Connect($computer)
                         
-                        if($recurse)
-                        {
-                            $AllFolders = Get-AllTaskSubFolders -FolderRef $sch.GetFolder($folder) -recurse -ErrorAction stop
+                        $AllFolders = @()
+                        $AllFolders += $sch.GetFolder($folder)
+
+                        if($recurse) {
+                            $AllFolders += Get-AllTaskSubFolders -FolderRef $sch.GetFolder($folder) -ErrorAction stop
                         }
-                        else
-                        {
-                            $AllFolders = Get-AllTaskSubFolders -FolderRef $sch.GetFolder($folder) -ErrorAction stop
-                        }
+
+
                         Write-verbose "Looking through $($AllFolders.count) folders on $computer"
                 
                         foreach($fold in $AllFolders){
                 
                             #Get tasks in this folder
-                            $tasks = $fold.GetTasks(0)
+                            $tasks = $fold.GetTasks(1) # 1 = get hidden tasks, too: https://docs.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-itaskfolder-gettasks
                 
                             Write-Verbose "Pulling data from $($tasks.count) tasks on $computer in $($fold.name)"
                             foreach($task in $tasks){
